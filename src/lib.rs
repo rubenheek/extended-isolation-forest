@@ -46,8 +46,8 @@
 //! }
 //! ```
 
-use std::boxed::Box;
 use std::result::Result;
+use std::{boxed::Box, fmt::Debug};
 
 use num::{traits::FloatConst, Float};
 use rand::{
@@ -67,7 +67,7 @@ mod error;
 mod serde_array;
 
 #[cfg(not(feature = "serde"))]
-pub trait ForestFloat<'de>: Float {}
+pub trait ForestFloat<'de>: Float + Debug {}
 
 #[cfg(feature = "serde")]
 pub trait ForestFloat<'de>: Float + Serialize + Deserialize<'de> {}
@@ -244,10 +244,11 @@ where
                 let mut p = [T::zero(); N];
                 mins.iter().zip(maxs.iter()).zip(p.iter_mut()).for_each(
                     |((min_val, max_val), p_i)| {
+                        println!("{min_val:?}, {max_val:?}");
                         if *min_val >= *max_val {
                             *p_i = *min_val;
                         } else {
-                            *p_i = rng.sample(Uniform::new(min_val, max_val))
+                            *p_i = rng.sample(Uniform::new(*min_val, *max_val));
                         }
                     },
                 );
