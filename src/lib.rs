@@ -244,7 +244,7 @@ where
                 let mut p = [T::zero(); N];
                 mins.iter().zip(maxs.iter()).zip(p.iter_mut()).for_each(
                     |((min_val, max_val), p_i)| {
-                        *p_i = if min_val == max_val {
+                        *p_i = if min_val >= max_val {
                             *min_val
                         } else {
                             rng.sample(Uniform::new(min_val, max_val))
