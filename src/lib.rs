@@ -50,6 +50,7 @@ use std::result::Result;
 use std::{boxed::Box, fmt::Debug};
 
 use num::{traits::FloatConst, Float};
+use plotly::layout::{Shape, ShapeLayer, ShapeType};
 use rand::{
     distributions::{uniform::SampleUniform, Uniform},
     rngs::ThreadRng,
@@ -163,6 +164,10 @@ where
 
         // Anomaly Score
         2.0_f64.powf(-eh / self.avg_path_length_c)
+    }
+
+    pub fn add_tree_splits(&self, idx: usize, layout: &mut plotly::Layout) {
+        self.trees[idx].add_splits(layout);
     }
 }
 
@@ -321,6 +326,101 @@ where
                 )
             }
         }
+    }
+
+    fn get_splits(&self) -> Vec<([T; N], [T; N])> {
+        NodeIter::new(self)
+            .filter_map(|node| match node {
+                Node::Ex(_ex_node) => None,
+                Node::In(in_node) => Some((in_node.p, in_node.n)),
+            })
+            .collect()
+    }
+
+    // // https://en.wikipedia.org/wiki/Line–line_intersection
+    // fn intersection(split1: ([T; N], [T; N]), split2: ([T; N], [T; N])) -> Option<(T, T)> {
+    //     let (x1, y1) = (split1.0[0], split1.0[1]);
+    //     let (x2, y2) = (split1.1[0], split1.1[1]);
+    //     let (x3, y3) = (split2.0[0], split2.0[1]);
+    //     let (x4, y4) = (split2.1[0], split2.1[1]);
+    //     let px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4))
+    //         / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));
+    //     let py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4))
+    //         / ((x1 - x2) * (y3 - y4) * (y1 - y2) * (x3 - x4));
+    //     Some((px, py))
+    // }
+
+    fn add_splits(&self, layout: &mut plotly::Layout) {
+        let mut lines = Vec::new();
+
+        let splits = self.get_splits();
+        for (i, split) in splits.iter().enumerate() {
+            // horizontal
+            if split.1[0].abs() > T::zero() {
+                let y = split.0[1];
+                let (x_min, x_max) = splits[0..i]
+                    .iter()
+                    .filter(|s| s.1[1].abs() > T::zero())
+                    .map(|s| s.0[0])
+                    .fold((T::zero(), T::one()), |(min, max), s| {
+                        (T::min(min, s), T::max(s, max))
+                    });
+                lines.push(([x_min, y], [x_max, y]))
+            }
+            // vertical
+            if split.1[1].abs() > T::zero() {
+                let x = split.0[0];
+                let (y_min, y_max) = splits[0..i]
+                    .iter()
+                    .filter(|s| s.1[0].abs() > T::zero())
+                    .map(|s| s.0[1])
+                    .fold((T::zero(), T::one()), |(min, max), s| {
+                        (T::min(min, s), T::max(s, max))
+                    });
+                lines.push(([x, y_min], [x, y_max]))
+            }
+        }
+
+        for ([x0, y0], [x1, y1]) in lines {
+            layout.add_shape(
+                Shape::new()
+                    .shape_type(ShapeType::Line)
+                    .layer(ShapeLayer::Below)
+                    .x0(x0.to_f64().unwrap())
+                    .y0(y0.to_f64().unwrap())
+                    .x1(x1.to_f64().unwrap())
+                    .y1(y1.to_f64().unwrap()),
+            );
+        }
+    }
+}
+
+struct NodeIter<'a, T, const N: usize> {
+    deque: std::collections::VecDeque<&'a Node<T, N>>,
+}
+
+impl<'a, T, const N: usize> NodeIter<'a, T, N> {
+    fn new(tree: &'a Tree<T, N>) -> Self {
+        let mut deque = std::collections::VecDeque::new();
+        deque.push_back(&tree.root);
+        Self { deque }
+    }
+}
+
+impl<'a, T, const N: usize> Iterator for NodeIter<'a, T, N> {
+    type Item = &'a Node<T, N>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.deque.pop_front().map(|node| {
+            match node {
+                Node::Ex(_ex_node) => {}
+                Node::In(in_node) => {
+                    self.deque.push_back(&in_node.left);
+                    self.deque.push_back(&in_node.right);
+                }
+            }
+            node
+        })
     }
 }
 
