@@ -354,30 +354,36 @@ where
         let mut lines = Vec::new();
 
         let splits = self.get_splits();
-        for (i, split) in splits.iter().enumerate() {
+        for (i, (pos, norm)) in splits.iter().enumerate() {
             // horizontal
-            if split.1[0].abs() > T::zero() {
-                let y = split.0[1];
-                let (x_min, x_max) = splits[0..i]
+            if norm[0].abs() > T::zero() {
+                let y = pos[1];
+                let x_left = splits[0..i]
                     .iter()
-                    .filter(|s| s.1[1].abs() > T::zero())
-                    .map(|s| s.0[0])
-                    .fold((T::zero(), T::one()), |(min, max), s| {
-                        (T::min(min, s), T::max(s, max))
-                    });
-                lines.push(([x_min, y], [x_max, y]))
+                    .filter(|(p, n)| n[1].abs() > T::zero() && p[0] <= pos[0])
+                    .map(|(p, _n)| p[0])
+                    .fold(T::zero(), T::max);
+                let x_right = splits[0..i]
+                    .iter()
+                    .filter(|(p, n)| n[1].abs() > T::zero() && p[0] >= pos[0])
+                    .map(|(p, _n)| p[0])
+                    .fold(T::one(), T::min);
+                lines.push(([x_left, y], [x_right, y]))
             }
             // vertical
-            if split.1[1].abs() > T::zero() {
-                let x = split.0[0];
-                let (y_min, y_max) = splits[0..i]
+            if norm[1].abs() > T::zero() {
+                let x = pos[0];
+                let y_down = splits[0..i]
                     .iter()
-                    .filter(|s| s.1[0].abs() > T::zero())
-                    .map(|s| s.0[1])
-                    .fold((T::zero(), T::one()), |(min, max), s| {
-                        (T::min(min, s), T::max(s, max))
-                    });
-                lines.push(([x, y_min], [x, y_max]))
+                    .filter(|(p, n)| n[0].abs() > T::zero() && p[1] >= pos[1])
+                    .map(|(p, _n)| p[1])
+                    .fold(T::zero(), T::max);
+                let y_up = splits[0..i]
+                    .iter()
+                    .filter(|(p, n)| n[0].abs() > T::zero() && p[1] <= pos[1])
+                    .map(|(p, _n)| p[1])
+                    .fold(T::one(), T::min);
+                lines.push(([x, y_down], [x, y_up]))
             }
         }
 
