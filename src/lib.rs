@@ -381,33 +381,41 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                     match node {
                         Node::Ex(_ex_node) => {}
                         Node::In(in_node) => {
+                            let (x_pos, y_pos) = (in_node.p[0], in_node.p[1]);
+                            let (x_dir, y_dir) = (in_node.n[0], in_node.n[1]);
+                            let (x_min, x_max) = (aabb.0[0][0], aabb.0[0][1]);
+                            let (y_min, y_max) = (aabb.0[1][0], aabb.0[1][1]);
                             let (mut aabb_left, mut aabb_right) = (aabb.clone(), aabb.clone());
-                            if in_node.n[0].abs() > F::zero() {
-                                // horizontal
-                                aabb_left.0[1][1] = in_node.p[1];
-                                aabb_right.0[1][0] = in_node.p[1];
-                                if in_node.n[0].is_sign_positive() {
-                                    swap(&mut aabb_left, &mut aabb_right);
+                            if x_dir.abs() > F::zero() {
+                                // horizontal -
+                                if x_dir.is_sign_positive() {
+                                    // right ->
+                                    aabb_left.0[1][0] = y_pos;
+                                    aabb_right.0[1][1] = y_pos;
+                                }
+                                if x_dir.is_sign_negative() {
+                                    // left <-
+                                    aabb_left.0[1][1] = y_pos;
+                                    aabb_right.0[1][0] = y_pos;
                                 }
                                 self.deque.push_back((&in_node.left, aabb_left));
                                 self.deque.push_back((&in_node.right, aabb_right));
-                                return Some((
-                                    [aabb.0[0][0], in_node.p[1]],
-                                    [aabb.0[0][1], in_node.p[1]],
-                                ));
-                            } else if in_node.n[1].abs() > F::zero() {
-                                // vertical
-                                aabb_left.0[0][1] = in_node.p[0];
-                                aabb_right.0[0][0] = in_node.p[0];
-                                if in_node.n[1].is_sign_negative() {
-                                    swap(&mut aabb_left, &mut aabb_right);
+                                return Some(([x_min, y_pos], [x_max, y_pos]));
+                            } else if y_dir.abs() > F::zero() {
+                                // vertical |
+                                if y_dir.is_sign_positive() {
+                                    // up
+                                    aabb_left.0[0][1] = x_pos;
+                                    aabb_right.0[0][0] = x_pos;
+                                }
+                                if y_dir.is_sign_negative() {
+                                    // down
+                                    aabb_left.0[0][0] = x_pos;
+                                    aabb_right.0[0][1] = x_pos;
                                 }
                                 self.deque.push_back((&in_node.left, aabb_left));
                                 self.deque.push_back((&in_node.right, aabb_right));
-                                return Some((
-                                    [in_node.p[0], aabb.0[1][0]],
-                                    [in_node.p[0], aabb.0[1][1]],
-                                ));
+                                return Some(([x_pos, y_min], [x_pos, y_max]));
                             }
                         }
                     };
