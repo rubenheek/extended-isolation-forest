@@ -398,7 +398,7 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                             } else if in_node.n[1].abs() > F::zero() {
                                 // vertical
                                 aabb_left.0[0][1] = in_node.p[0];
-                                aabb_right.0[0][1] = in_node.p[0];
+                                aabb_right.0[0][0] = in_node.p[0];
                                 if in_node.n[1].is_sign_negative() {
                                     swap(&mut aabb_left, &mut aabb_right);
                                 }
