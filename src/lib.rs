@@ -336,67 +336,11 @@ where
             }
         }
     }
+}
 
-    fn get_splits(&self) -> Vec<([T; N], [T; N])> {
-        NodeIter::new(self)
-            .filter_map(|node| match node {
-                Node::Ex(_ex_node) => None,
-                Node::In(in_node) => Some((in_node.p, in_node.n)),
-            })
-            .collect()
-    }
-
-    // // https://en.wikipedia.org/wiki/Line–line_intersection
-    // fn intersection(split1: ([T; N], [T; N]), split2: ([T; N], [T; N])) -> Option<(T, T)> {
-    //     let (x1, y1) = (split1.0[0], split1.0[1]);
-    //     let (x2, y2) = (split1.1[0], split1.1[1]);
-    //     let (x3, y3) = (split2.0[0], split2.0[1]);
-    //     let (x4, y4) = (split2.1[0], split2.1[1]);
-    //     let px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4))
-    //         / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));
-    //     let py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4))
-    //         / ((x1 - x2) * (y3 - y4) * (y1 - y2) * (x3 - x4));
-    //     Some((px, py))
-    // }
-
+impl<F: Float, const N: usize> Tree<F, N> {
     pub fn add_splits(&self, layout: &mut plotly::Layout) {
-        let mut lines = Vec::new();
-
-        let splits = self.get_splits();
-        for (i, (pos, norm)) in splits.iter().enumerate() {
-            // horizontal
-            if norm[0].abs() > T::zero() {
-                let y = pos[1];
-                let x_left = splits[0..i]
-                    .iter()
-                    .filter(|(p, n)| n[1].abs() > T::zero() && p[0] <= pos[0])
-                    .map(|(p, _n)| p[0])
-                    .fold(T::zero(), T::max);
-                let x_right = splits[0..i]
-                    .iter()
-                    .filter(|(p, n)| n[1].abs() > T::zero() && p[0] >= pos[0])
-                    .map(|(p, _n)| p[0])
-                    .fold(T::one(), T::min);
-                lines.push(([x_left, y], [x_right, y]))
-            }
-            // vertical
-            if norm[1].abs() > T::zero() {
-                let x = pos[0];
-                let y_down = splits[0..i]
-                    .iter()
-                    .filter(|(p, n)| n[0].abs() > T::zero() && p[1] >= pos[1])
-                    .map(|(p, _n)| p[1])
-                    .fold(T::zero(), T::max);
-                let y_up = splits[0..i]
-                    .iter()
-                    .filter(|(p, n)| n[0].abs() > T::zero() && p[1] <= pos[1])
-                    .map(|(p, _n)| p[1])
-                    .fold(T::one(), T::min);
-                lines.push(([x, y_down], [x, y_up]))
-            }
-        }
-
-        for ([x0, y0], [x1, y1]) in lines {
+        for ([x0, y0], [x1, y1]) in SplitIter::new(self) {
             layout.add_shape(
                 Shape::new()
                     .shape_type(ShapeType::Line)
@@ -410,32 +354,60 @@ where
     }
 }
 
-struct NodeIter<'a, T, const N: usize> {
-    deque: std::collections::VecDeque<&'a Node<T, N>>,
+#[derive(Clone)]
+struct Aabb<F: Float>([[F; 2]; 2]);
+
+struct SplitIter<'a, F: Float, const N: usize> {
+    deque: std::collections::VecDeque<(&'a Node<F, N>, Aabb<F>)>,
 }
 
-impl<'a, T, const N: usize> NodeIter<'a, T, N> {
-    fn new(tree: &'a Tree<T, N>) -> Self {
+impl<'a, F: Float, const N: usize> SplitIter<'a, F, N> {
+    fn new(tree: &'a Tree<F, N>) -> Self {
         let mut deque = std::collections::VecDeque::new();
-        deque.push_back(&tree.root);
+        let aabb = Aabb([[F::zero(), F::one()]; 2]);
+        deque.push_back((&tree.root, aabb));
         Self { deque }
     }
 }
 
-impl<'a, T, const N: usize> Iterator for NodeIter<'a, T, N> {
-    type Item = &'a Node<T, N>;
+impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
+    type Item = ([F; 2], [F; 2]);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.deque.pop_front().map(|node| {
-            match node {
-                Node::Ex(_ex_node) => {}
-                Node::In(in_node) => {
-                    self.deque.push_back(&in_node.left);
-                    self.deque.push_back(&in_node.right);
+        loop {
+            match self.deque.pop_front() {
+                Some((node, aabb)) => {
+                    match node {
+                        Node::Ex(_ex_node) => {}
+                        Node::In(in_node) => {
+                            let (mut aabb_left, mut aabb_right) = (aabb.clone(), aabb.clone());
+                            if in_node.n[0] > F::zero() {
+                                // horizontal
+                                aabb_left.0[1][1] = in_node.p[1];
+                                self.deque.push_back((&in_node.left, aabb_left));
+                                aabb_right.0[1][0] = in_node.p[1];
+                                self.deque.push_back((&in_node.right, aabb_right));
+                                return Some((
+                                    [aabb.0[0][0], in_node.p[1]],
+                                    [aabb.0[0][1], in_node.p[1]],
+                                ));
+                            } else if in_node.n[1] > F::zero() {
+                                // vertical
+                                aabb_left.0[0][1] = in_node.p[0];
+                                self.deque.push_back((&in_node.left, aabb_left));
+                                aabb_right.0[0][1] = in_node.p[0];
+                                self.deque.push_back((&in_node.right, aabb_right));
+                                return Some((
+                                    [in_node.p[0], aabb.0[1][0]],
+                                    [in_node.p[0], aabb.0[1][1]],
+                                ));
+                            }
+                        }
+                    };
                 }
+                None => return None,
             }
-            node
-        })
+        }
     }
 }
 
