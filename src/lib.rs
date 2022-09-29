@@ -355,18 +355,20 @@ impl<F: Float, const N: usize> Tree<F, N> {
     }
 }
 
-#[derive(Clone)]
-struct Aabb<F: Float>([[F; 2]; 2]);
+#[derive(Clone, Copy)]
+enum Split<F> {
+    DimX(F),
+    DimY(F),
+}
 
 struct SplitIter<'a, F: Float, const N: usize> {
-    deque: std::collections::VecDeque<(&'a Node<F, N>, Aabb<F>)>,
+    deque: std::collections::VecDeque<(&'a Node<F, N>, Vec<Split<F>>)>,
 }
 
 impl<'a, F: Float, const N: usize> SplitIter<'a, F, N> {
     fn new(tree: &'a Tree<F, N>) -> Self {
         let mut deque = std::collections::VecDeque::new();
-        let aabb = Aabb([[F::zero(), F::one()]; 2]);
-        deque.push_back((&tree.root, aabb));
+        deque.push_back((&tree.root, Vec::new()));
         Self { deque }
     }
 }
@@ -377,49 +379,61 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.deque.pop_front() {
-                Some((node, aabb)) => {
-                    match node {
-                        Node::Ex(_ex_node) => {}
-                        Node::In(in_node) => {
-                            let (x_pos, y_pos) = (in_node.p[0], in_node.p[1]);
-                            let (x_dir, y_dir) = (in_node.n[0], in_node.n[1]);
-                            let (x_min, x_max) = (aabb.0[0][0], aabb.0[0][1]);
-                            let (y_min, y_max) = (aabb.0[1][0], aabb.0[1][1]);
-                            let (mut aabb_left, mut aabb_right) = (aabb.clone(), aabb.clone());
-                            if x_dir.abs() > F::zero() {
-                                // horizontal -
-                                if x_dir.is_sign_positive() {
-                                    // right ->
-                                    aabb_left.0[1][0] = y_pos;
-                                    aabb_right.0[1][1] = y_pos;
-                                }
-                                if x_dir.is_sign_negative() {
-                                    // left <-
-                                    aabb_left.0[1][1] = y_pos;
-                                    aabb_right.0[1][0] = y_pos;
-                                }
-                                self.deque.push_back((&in_node.left, aabb_left));
-                                self.deque.push_back((&in_node.right, aabb_right));
-                                return Some(([x_min, y_pos], [x_max, y_pos]));
-                            } else if y_dir.abs() > F::zero() {
-                                // vertical |
-                                if y_dir.is_sign_positive() {
-                                    // up
-                                    aabb_left.0[0][1] = x_pos;
-                                    aabb_right.0[0][0] = x_pos;
-                                }
-                                if y_dir.is_sign_negative() {
-                                    // down
-                                    aabb_left.0[0][0] = x_pos;
-                                    aabb_right.0[0][1] = x_pos;
-                                }
-                                self.deque.push_back((&in_node.left, aabb_left));
-                                self.deque.push_back((&in_node.right, aabb_right));
-                                return Some(([x_pos, y_min], [x_pos, y_max]));
-                            }
+                Some((node, mut splits)) => match node {
+                    Node::Ex(_ex_node) => {}
+                    Node::In(in_node) => {
+                        let (x_pos, y_pos) = (in_node.p[0], in_node.p[1]);
+                        let (x_dir, y_dir) = (in_node.n[0], in_node.n[1]);
+
+                        let split = if x_dir.abs() > F::zero() {
+                            let x_min = splits
+                                .iter()
+                                .filter_map(|&split| match split {
+                                    Split::DimX(x) if x < x_pos => Some(x),
+                                    _ => None,
+                                })
+                                .fold(F::zero(), F::max);
+                            let x_max = splits
+                                .iter()
+                                .filter_map(|&split| match split {
+                                    Split::DimX(x) if x > x_pos => Some(x),
+                                    _ => None,
+                                })
+                                .fold(F::one(), F::min);
+                            ([x_min, y_pos], [x_max, y_pos])
+                        } else if y_dir.abs() > F::zero() {
+                            let y_min = splits
+                                .iter()
+                                .filter_map(|&split| match split {
+                                    Split::DimY(y) if y < y_pos => Some(y),
+                                    _ => None,
+                                })
+                                .fold(F::zero(), F::max);
+                            let y_max = splits
+                                .iter()
+                                .filter_map(|&split| match split {
+                                    Split::DimY(y) if y > y_pos => Some(y),
+                                    _ => None,
+                                })
+                                .fold(F::one(), F::min);
+                            ([x_pos, y_min], [x_pos, y_max])
+                        } else {
+                            panic!("no direction");
+                        };
+
+                        if x_dir.abs() > F::zero() {
+                            splits.push(Split::DimX(y_pos));
                         }
-                    };
-                }
+                        if y_dir.abs() > F::zero() {
+                            splits.push(Split::DimY(x_pos));
+                        }
+
+                        self.deque.push_back((&in_node.left, splits.clone()));
+                        self.deque.push_back((&in_node.right, splits));
+
+                        return Some(split);
+                    }
+                },
                 None => return None,
             }
         }
