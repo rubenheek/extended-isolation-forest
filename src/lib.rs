@@ -341,6 +341,7 @@ where
 impl<F: Float, const N: usize> Tree<F, N> {
     pub fn add_splits(&self, layout: &mut plotly::Layout) {
         for ([x0, y0], [x1, y1]) in SplitIter::new(self) {
+            println!("add_shape");
             layout.add_shape(
                 Shape::new()
                     .shape_type(ShapeType::Line)
@@ -401,6 +402,8 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                                     [in_node.p[0], aabb.0[1][0]],
                                     [in_node.p[0], aabb.0[1][1]],
                                 ));
+                            } else {
+                                println!("OOPS");
                             }
                         }
                     };
