@@ -386,7 +386,7 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                                 // horizontal
                                 aabb_left.0[1][1] = in_node.p[1];
                                 aabb_right.0[1][0] = in_node.p[1];
-                                if in_node.n[0].is_sign_negative() {
+                                if in_node.n[0].is_sign_positive() {
                                     swap(&mut aabb_left, &mut aabb_right);
                                 }
                                 self.deque.push_back((&in_node.left, aabb_left));
