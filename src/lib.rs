@@ -356,8 +356,8 @@ impl<F: Float, const N: usize> Tree<F, N> {
 
 #[derive(Clone, Copy)]
 enum Split<F> {
-    DimX(F),
-    DimY(F),
+    DimX(F, [F; 2]),
+    DimY(F, [F; 2]),
 }
 
 struct SplitIter<'a, F: Float, const N: usize> {
@@ -390,44 +390,55 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                             let x_min = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimY(x) if x < x_pos => Some(x),
+                                    Split::DimY(x, [y_min, y_max])
+                                        if x < x_pos && y_min < y_pos && y_pos < y_max =>
+                                    {
+                                        Some(x)
+                                    }
                                     _ => None,
                                 })
                                 .fold(F::zero(), F::max);
                             let x_max = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimY(x) if x > x_pos => Some(x),
+                                    Split::DimY(x, [y_min, y_max])
+                                        if x > x_pos && y_min < y_pos && y_pos < y_max =>
+                                    {
+                                        Some(x)
+                                    }
                                     _ => None,
                                 })
                                 .fold(F::one(), F::min);
+                            splits.push(Split::DimX(y_pos, [x_min, x_max]));
                             ([x_min, y_pos], [x_max, y_pos])
                         } else if y_dir.abs() > F::zero() {
                             let y_min = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimX(y) if y < y_pos => Some(y),
+                                    Split::DimX(y, [x_min, x_max])
+                                        if y < y_pos && x_min < x_pos && x_pos < x_max =>
+                                    {
+                                        Some(y)
+                                    }
                                     _ => None,
                                 })
                                 .fold(F::zero(), F::max);
                             let y_max = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimX(y) if y > y_pos => Some(y),
+                                    Split::DimX(y, [x_min, x_max])
+                                        if y > y_pos && x_min < x_pos && x_pos < x_max =>
+                                    {
+                                        Some(y)
+                                    }
                                     _ => None,
                                 })
                                 .fold(F::one(), F::min);
+                            splits.push(Split::DimY(x_pos, [y_min, y_max]));
                             ([x_pos, y_min], [x_pos, y_max])
                         } else {
                             panic!("no direction");
                         };
-
-                        if x_dir.abs() > F::zero() {
-                            splits.push(Split::DimX(y_pos));
-                        }
-                        if y_dir.abs() > F::zero() {
-                            splits.push(Split::DimY(x_pos));
-                        }
 
                         self.deque.push_back((&in_node.left, splits.clone()));
                         self.deque.push_back((&in_node.right, splits));
