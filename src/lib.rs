@@ -384,6 +384,8 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                         let (x_pos, y_pos) = (in_node.p[0], in_node.p[1]);
                         let (x_dir, y_dir) = (in_node.n[0], in_node.n[1]);
 
+                        assert!(x_dir.abs() > F::zero() || y_dir.abs() > F::zero());
+
                         let split = if x_dir.abs() > F::zero() {
                             let x_min = splits
                                 .iter()
