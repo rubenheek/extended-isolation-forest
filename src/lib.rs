@@ -46,7 +46,6 @@
 //! }
 //! ```
 
-use std::mem::swap;
 use std::ops::Index;
 use std::result::Result;
 use std::{boxed::Box, fmt::Debug};
@@ -389,14 +388,14 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                             let x_min = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimX(x) if x < x_pos => Some(x),
+                                    Split::DimY(x) if x < x_pos => Some(x),
                                     _ => None,
                                 })
                                 .fold(F::zero(), F::max);
                             let x_max = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimX(x) if x > x_pos => Some(x),
+                                    Split::DimY(x) if x > x_pos => Some(x),
                                     _ => None,
                                 })
                                 .fold(F::one(), F::min);
@@ -405,14 +404,14 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                             let y_min = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimY(y) if y < y_pos => Some(y),
+                                    Split::DimX(y) if y < y_pos => Some(y),
                                     _ => None,
                                 })
                                 .fold(F::zero(), F::max);
                             let y_max = splits
                                 .iter()
                                 .filter_map(|&split| match split {
-                                    Split::DimY(y) if y > y_pos => Some(y),
+                                    Split::DimX(y) if y > y_pos => Some(y),
                                     _ => None,
                                 })
                                 .fold(F::one(), F::min);
