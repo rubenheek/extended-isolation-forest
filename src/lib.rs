@@ -51,7 +51,7 @@ use std::result::Result;
 use std::{boxed::Box, fmt::Debug};
 
 use num::{traits::FloatConst, Float};
-use plotly::layout::{Shape, ShapeLayer, ShapeType};
+use plotly::layout::{Shape, ShapeLayer, ShapeLine, ShapeType};
 use rand::{
     distributions::{uniform::SampleUniform, Uniform},
     rngs::ThreadRng,
@@ -345,6 +345,7 @@ impl<F: Float, const N: usize> Tree<F, N> {
                 Shape::new()
                     .shape_type(ShapeType::Line)
                     .layer(ShapeLayer::Below)
+                    .line(ShapeLine::new().width(1.0))
                     .x0(x0.to_f64().unwrap())
                     .y0(y0.to_f64().unwrap())
                     .x1(x1.to_f64().unwrap())
