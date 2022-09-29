@@ -382,7 +382,12 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                         Node::Ex(_ex_node) => {}
                         Node::In(in_node) => {
                             let (mut aabb_left, mut aabb_right) = (aabb.clone(), aabb.clone());
-                            if in_node.n[0] > F::zero() {
+                            println!(
+                                "n: [{}, {}]",
+                                in_node.n[0].to_f64().unwrap(),
+                                in_node.n[1].to_f64().unwrap()
+                            );
+                            if in_node.n[0].abs() > F::zero() {
                                 // horizontal
                                 aabb_left.0[1][1] = in_node.p[1];
                                 self.deque.push_back((&in_node.left, aabb_left));
@@ -392,7 +397,7 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                                     [aabb.0[0][0], in_node.p[1]],
                                     [aabb.0[0][1], in_node.p[1]],
                                 ));
-                            } else if in_node.n[1] > F::zero() {
+                            } else if in_node.n[1].abs() > F::zero() {
                                 // vertical
                                 aabb_left.0[0][1] = in_node.p[0];
                                 self.deque.push_back((&in_node.left, aabb_left));
