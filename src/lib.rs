@@ -46,6 +46,7 @@
 //! }
 //! ```
 
+use std::ops::Index;
 use std::result::Result;
 use std::{boxed::Box, fmt::Debug};
 
@@ -171,6 +172,14 @@ where
     }
 }
 
+impl<T, const N: usize> Index<usize> for Forest<T, N> {
+    type Output = Tree<T, N>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.trees[index]
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 enum Node<T, const N: usize> {
     Ex(ExNode),
@@ -202,7 +211,7 @@ struct ExNode {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-struct Tree<T, const N: usize> {
+pub struct Tree<T, const N: usize> {
     root: Node<T, N>,
 }
 
@@ -350,7 +359,7 @@ where
     //     Some((px, py))
     // }
 
-    fn add_splits(&self, layout: &mut plotly::Layout) {
+    pub fn add_splits(&self, layout: &mut plotly::Layout) {
         let mut lines = Vec::new();
 
         let splits = self.get_splits();
