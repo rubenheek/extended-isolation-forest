@@ -46,6 +46,7 @@
 //! }
 //! ```
 
+use std::mem::swap;
 use std::ops::Index;
 use std::result::Result;
 use std::{boxed::Box, fmt::Debug};
@@ -341,7 +342,6 @@ where
 impl<F: Float, const N: usize> Tree<F, N> {
     pub fn add_splits(&self, layout: &mut plotly::Layout) {
         for ([x0, y0], [x1, y1]) in SplitIter::new(self) {
-            println!("add_shape");
             layout.add_shape(
                 Shape::new()
                     .shape_type(ShapeType::Line)
@@ -382,16 +382,14 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                         Node::Ex(_ex_node) => {}
                         Node::In(in_node) => {
                             let (mut aabb_left, mut aabb_right) = (aabb.clone(), aabb.clone());
-                            println!(
-                                "n: [{}, {}]",
-                                in_node.n[0].to_f64().unwrap(),
-                                in_node.n[1].to_f64().unwrap()
-                            );
                             if in_node.n[0].abs() > F::zero() {
                                 // horizontal
                                 aabb_left.0[1][1] = in_node.p[1];
-                                self.deque.push_back((&in_node.left, aabb_left));
                                 aabb_right.0[1][0] = in_node.p[1];
+                                if in_node.n[0].is_sign_negative() {
+                                    swap(&mut aabb_left, &mut aabb_right);
+                                }
+                                self.deque.push_back((&in_node.left, aabb_left));
                                 self.deque.push_back((&in_node.right, aabb_right));
                                 return Some((
                                     [aabb.0[0][0], in_node.p[1]],
@@ -400,15 +398,16 @@ impl<'a, F: Float, const N: usize> Iterator for SplitIter<'a, F, N> {
                             } else if in_node.n[1].abs() > F::zero() {
                                 // vertical
                                 aabb_left.0[0][1] = in_node.p[0];
-                                self.deque.push_back((&in_node.left, aabb_left));
                                 aabb_right.0[0][1] = in_node.p[0];
+                                if in_node.n[1].is_sign_negative() {
+                                    swap(&mut aabb_left, &mut aabb_right);
+                                }
+                                self.deque.push_back((&in_node.left, aabb_left));
                                 self.deque.push_back((&in_node.right, aabb_right));
                                 return Some((
                                     [in_node.p[0], aabb.0[1][0]],
                                     [in_node.p[0], aabb.0[1][1]],
                                 ));
-                            } else {
-                                println!("OOPS");
                             }
                         }
                     };
